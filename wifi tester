@@ -1,0 +1,472 @@
+# devs tg: @oeuts & @One_mIZa
+"""
+=============================================================================
+EDUCATIONAL NETWORK LOAD TESTER - FOR AUTHORIZED TESTING ONLY
+=============================================================================
+WARNING: This tool is for testing YOUR OWN NETWORKS only!
+Unauthorized network testing is ILLEGAL and punishable by law.
+Test only networks you own or have written permission for.
+=============================================================================
+"""
+
+import os, re, sys, time, socket, random, struct, threading, subprocess, multiprocessing, collections
+from pathlib import Path
+from urllib.request import urlopen
+
+try:
+    from rich.console import Console
+    from rich.live import Live
+    from rich.table import Table
+except ImportError:
+    print("Please install required packages: pip install rich")
+    sys.exit(1)
+
+cfg = {
+    'SCRIPT_FILE': "",
+    'MENU_OPTIONS': ["", "0"],
+    'DEF_IP': "192.168.1.1",
+    'CURRENT_VER': "3.0.0"
+}
+
+RAINBOW_COLORS = [
+    "[bold #FF0000]", "[bold #FF4500]", "[bold #FFA500]", "[bold #FFFF00]",
+    "[bold #9ACD32]", "[bold #00FF00]", "[bold #00FFFF]", "[bold #1E90FF]",
+    "[bold #0000FF]", "[bold #8A2BE2]", "[bold #FF00FF]", "[bold #FF1493]"
+]
+
+console = Console()
+
+class RainbowSkull:
+    def __init__(self):
+        self.full_skull = """                            ,--.
+                           {    }
+                           m,   }
+                          /  ~I`
+                     ,   /   /
+                    {_'-Z.__/
+                      `/-.__L._
+                      /  ' /`a_}
+                     /  ' /
+             ____   /  ' /
+      ,-'~~~~    ~~/  ' /_
+    ,'             ``~~~  ',
+   (                        m
+  {                         I
+ {      -                    `,
+ |       ',                   )
+ |        |   ,..__      __. Z
+ |    .,,./  Y ' / ^Y   J   )|
+ \\           |' /   |   |a  ||
+  \\          L_/    . _ (_,.'(
+   \\,   ,      ^^""' / |      )
+     \\_  \\          /,L]     /
+       '-_~-,       ` `   ./`
+          `'{_            )
+              ^^\\..__,.--`    
+
+      _   _   ____     ____ 
+     | | | | |  _ \\   / ___|
+     | | | | | |_) | | |    
+     | | | | |  _ <  | |    
+     | |_| | | | \\ \\ | |___ 
+      \\___/  |_|  \\_\\ \\____|"""
+    
+    def get_rainbow_skull(self):
+        color_index = int(time.time() * 14)
+        color = RAINBOW_COLORS[color_index % len(RAINBOW_COLORS)]
+        return f"{color}{self.full_skull}[/]"
+    
+    def get_red_skull(self):
+        return f"[bold #FF0000]{self.full_skull}[/]"
+
+def draw_ui(right_text="", rainbow=False):
+    os.system('clear' if os.name == 'posix' else 'cls')
+    console.print(f"\n\n[bold cyan]{' '*40}NETWORK LOAD TESTER v{cfg['CURRENT_VER']}[/]\n")
+    
+    table = Table.grid(expand=False, padding=(0, 5))
+    table.add_column(justify="left", no_wrap=True)
+    table.add_column(justify="left", no_wrap=True)
+    
+    skull = RainbowSkull()
+    skull_art = skull.get_rainbow_skull() if rainbow else skull.get_red_skull()
+    
+    table.add_row(skull_art, right_text)
+    console.print(table)
+
+def get_gateway():
+    default_ip = "192.168.1.1"
+    try:
+        if sys.platform in ["linux", "linux2"]:
+            result = subprocess.run(['ip', 'route'], capture_output=True, text=True, timeout=1)
+            for line in result.stdout.split('\n'):
+                if 'default via' in line:
+                    parts = line.split()
+                    for i, part in enumerate(parts):
+                        if part == 'via' and i + 1 < len(parts):
+                            return parts[i + 1]
+        return default_ip
+    except:
+        return default_ip
+
+cfg['DEF_IP'] = get_gateway()
+
+def optimize_network():
+    try:
+        if sys.platform in ["linux", "linux2"]:
+            params = {
+                'net.core.rmem_max': '268435456',
+                'net.core.wmem_max': '268435456',
+                'net.ipv4.tcp_rmem': '4096 131072 268435456',
+                'net.ipv4.tcp_wmem': '4096 131072 268435456',
+                'net.core.netdev_max_backlog': '1000000',
+                'net.core.somaxconn': '262144',
+                'net.ipv4.tcp_no_metrics_save': '1',
+                'net.ipv4.tcp_tw_reuse': '1',
+                'net.ipv4.tcp_fin_timeout': '10',
+                'net.ipv4.tcp_max_syn_backlog': '262144'
+            }
+            for param, val in params.items():
+                try:
+                    path = f'/proc/sys/{param.replace(".", "/")}'
+                    if os.path.exists(path):
+                        with open(path, 'w') as f:
+                            f.write(val)
+                except:
+                    continue
+    except PermissionError:
+        console.print("[bold red][!] Root access required for network optimization.[/]")
+    except socket.error:
+        console.print("[bold red][!] Network error detected[/]")
+    except:
+        pass
+
+def get_input(prompt):
+    draw_ui(prompt, rainbow=False)
+    return console.input("").strip()
+
+def get_cores():
+    max_cores = multiprocessing.cpu_count()
+    if max_cores > 8:
+        max_cores = 8
+    while True:
+        try:
+            cores_str = get_input(f"[yellow]CPU Cores [1-{max_cores}]:[/yellow]")
+            if not cores_str:
+                cores_str = str(max_cores)
+            cores = int(cores_str)
+            if cores == 0:
+                sys.exit(1)
+            if 1 <= cores <= max_cores:
+                return cores
+        except ValueError:
+            pass
+        except KeyboardInterrupt:
+            console.print("\n[yellow]Exiting...[/yellow]")
+            sys.exit(0)
+
+def get_target():
+    while True:
+        try:
+            ip = get_input(f"[yellow]Target IP [{cfg['DEF_IP']}]:[/yellow]")
+            if not ip:
+                ip = cfg['DEF_IP']
+            if check_ip(ip):
+                if is_local_ip(ip):
+                    return ip
+                else:
+                    draw_ui("[red]Only local network IPs allowed (192.168.x.x, 10.x.x.x, 172.16-31.x.x)[/red]", rainbow=False)
+                    time.sleep(1)
+            else:
+                draw_ui("[red]Invalid IP format[/red]", rainbow=False)
+                time.sleep(0.5)
+        except KeyboardInterrupt:
+            console.print("\n[yellow]Exiting...[/yellow]")
+            sys.exit(0)
+
+def is_local_ip(ip: str):
+    """Check if IP is in local network ranges"""
+    parts = ip.split(".")
+    if len(parts) != 4:
+        return False
+    try:
+        octets = [int(p) for p in parts]
+        # 192.168.0.0/16
+        if octets[0] == 192 and octets[1] == 168:
+            return True
+        # 10.0.0.0/8
+        if octets[0] == 10:
+            return True
+        # 172.16.0.0/12
+        if octets[0] == 172 and 16 <= octets[1] <= 31:
+            return True
+        # 127.0.0.0/8 (localhost)
+        if octets[0] == 127:
+            return True
+        return False
+    except:
+        return False
+
+def check_ip(ip: str):
+    parts = ip.split(".")
+    if len(parts) != 4:
+        return False
+    try:
+        return all(0 <= int(p) <= 255 for p in parts)
+    except:
+        return False
+
+def get_duration():
+    while True:
+        try:
+            dur_str = get_input(f"""[yellow]Test Duration [seconds]:[/yellow]
+Enter - Continuous test
+0 - Continuous test
+1-9999 - Set specific time""")
+            if not dur_str or dur_str == "0":
+                return 999999999
+            duration = int(dur_str)
+            if 1 <= duration <= 9999:
+                return duration
+        except ValueError:
+            draw_ui("[red]Invalid duration[/red]", rainbow=False)
+            time.sleep(0.5)
+        except KeyboardInterrupt:
+            console.print("\n[yellow]Exiting...[/yellow]")
+            sys.exit(0)
+
+class NetworkLoadTester:
+    def __init__(self, target_ip, duration, test_threads):
+        self.target = target_ip
+        self.duration = duration
+        self.running = True
+        self.test_threads = test_threads
+        self.packets = 0
+        self.packet_times = collections.deque(maxlen=10000)
+        self.lock = threading.Lock()
+        self.small_payload = b'\xff' * 64
+        self.http_request = b"GET / HTTP/1.1\r\nHost: " + target_ip.encode() + b"\r\n\r\n"
+        self.tcp_ports = [80, 443, 22, 23, 53, 8080, 8443, 21]
+        self.udp_ports = list(range(1, 65536))
+        random.shuffle(self.udp_ports)
+    
+    def udp_load_test(self):
+        port_idx = 0
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 2097152)
+            sock.settimeout(0)
+        except:
+            return
+        start_time = time.time()
+        while self.running and (self.duration == 999999999 or time.time() - start_time < self.duration):
+            try:
+                for _ in range(500):
+                    sock.sendto(self.small_payload, (self.target, self.udp_ports[port_idx]))
+                    port_idx = (port_idx + 1) % len(self.udp_ports)
+                with self.lock:
+                    self.packets += 500
+                    self.packet_times.append((time.time(), 500))
+            except:
+                pass
+        sock.close()
+    
+    def dns_load_test(self):
+        domains = ['test.local', 'router.local', 'device.local']
+        domain_packets = []
+        for domain in domains:
+            tid = random.randint(0, 65535)
+            packet = struct.pack('>HHHHHH', tid, 0x0100, 1, 0, 0, 0)
+            for part in domain.split('.'):
+                packet += struct.pack('B', len(part)) + part.encode()
+            packet += b'\x00\x00\xff\x00\x01\x00\x00\x00\x00\x00\x00'
+            domain_packets.append(packet)
+        ports = [53, 5353]
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1048576)
+            sock.settimeout(0)
+        except:
+            return
+        start_time = time.time()
+        while self.running and (self.duration == 999999999 or time.time() - start_time < self.duration):
+            try:
+                for _ in range(200):
+                    sock.sendto(domain_packets[random.randint(0, len(domain_packets) - 1)], 
+                              (self.target, ports[random.randint(0, len(ports) - 1)]))
+                with self.lock:
+                    self.packets += 200
+                    self.packet_times.append((time.time(), 200))
+            except:
+                pass
+        sock.close()
+    
+    def tcp_load_test(self):
+        port_idx = 0
+        start_time = time.time()
+        while self.running and (self.duration == 999999999 or time.time() - start_time < self.duration):
+            for _ in range(100):
+                try:
+                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    sock.settimeout(0.00001)
+                    sock.connect_ex((self.target, self.tcp_ports[port_idx]))
+                    port_idx = (port_idx + 1) % len(self.tcp_ports)
+                    sock.close()
+                except:
+                    pass
+            with self.lock:
+                self.packets += 100
+                self.packet_times.append((time.time(), 100))
+    
+    def http_load_test(self):
+        start_time = time.time()
+        while self.running and (self.duration == 999999999 or time.time() - start_time < self.duration):
+            try:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(0.0001)
+                sock.connect((self.target, 80))
+                for _ in range(25):
+                    sock.send(self.http_request)
+                sock.close()
+                with self.lock:
+                    self.packets += 25
+                    self.packet_times.append((time.time(), 25))
+            except:
+                pass
+    
+    def get_stats(self):
+        now = time.time()
+        with self.lock:
+            total = self.packets
+            pps = sum(count for t, count in self.packet_times if now - t <= 1.0)
+        return total, pps
+
+    def run_tests(self):
+        tests = [self.udp_load_test, self.dns_load_test, self.tcp_load_test, self.http_load_test]
+        for test in tests:
+            for _ in range(self.test_threads):
+                t = threading.Thread(target=test)
+                t.daemon = True
+                t.start()
+
+def menu():
+    try:
+        optimize_network()
+        while True:
+            try:
+                draw_ui(f"""[bold green][ENTER][/bold green] Start Load Test
+[bold red][0][/bold red] Exit""", rainbow=False)
+                mainmenu = console.input("").strip()
+                if mainmenu in cfg['MENU_OPTIONS']:
+                    break
+                else:
+                    draw_ui("[bold red]Invalid selection[/bold red]", rainbow=False)
+                    time.sleep(0.5)
+            except KeyboardInterrupt:
+                console.print("\n[yellow]Exiting...[/yellow]")
+                sys.exit(0)
+        
+        if mainmenu == "":
+            CORES = get_cores()
+            target_ip = get_target()
+            duration = get_duration()
+            draw_ui(f"""Target: [white]{target_ip}[/]
+Duration: [white]{'Continuous' if duration == 999999999 else f'{duration}s'}[/]
+CPU Cores: [white]{CORES}[/]
+Test Threads: [white]{CORES * 4}[/]
+[bold cyan][*]STARTING LOAD TEST...[/bold cyan]""", rainbow=False)
+            time.sleep(1)
+            
+            tester = NetworkLoadTester(target_ip, duration, CORES)
+            tester.run_tests()
+            
+            start_time = time.time()
+            peak_rate = 0
+            try:
+                os.system('clear' if os.name == 'posix' else 'cls')
+                console.print(f"\n\n[bold cyan]{' '*40}NETWORK LOAD TESTER v{cfg['CURRENT_VER']}[/]\n")
+                with Live(refresh_per_second=14, screen=False) as live:
+                    while True:
+                        now = time.time()
+                        elapsed = now - start_time
+                        if duration != 999999999 and elapsed >= duration:
+                            break
+                        
+                        total_packets, recent_packets = tester.get_stats()
+                        if recent_packets > peak_rate:
+                            peak_rate = recent_packets
+                        
+                        if duration == 999999999:
+                            time_display = f"[white]{int(elapsed)}s/Continuous[/]"
+                            progress_bar = "[bold cyan]CONTINUOUS TEST[/]"
+                            progress_text = ""
+                        else:
+                            progress = min(elapsed / duration, 1.0) if duration > 0 else 0
+                            bar_len = 20
+                            filled = int(bar_len * progress)
+                            progress_bar = '█' * filled + '░' * (bar_len - filled)
+                            progress_text = f"{progress:.1%}"
+                            time_display = f"[white]{int(elapsed)}s/{duration}s[/]"
+                        
+                        pps_color = "white"
+                        if recent_packets >= 10000:
+                            pps_color = "green"
+                        if recent_packets >= 50000:
+                            pps_color = "yellow"
+                        if recent_packets >= 100000:
+                            pps_color = "red"
+                        if recent_packets >= 500000:
+                            pps_color = "bold red"
+                        
+                        test_text = f"""[*]LOAD TEST ACTIVE[*]
+Target: [bold yellow]{target_ip}[/]
+Packets: [bold white]{total_packets:,}[/]
+Rate: [{pps_color}]{recent_packets:,}/s[/]
+Cores: [white]{CORES}[/]
+Threads: [white]{CORES * 4}[/]
+Time: {time_display}
+{progress_bar} {progress_text}
+[bold red]CTRL+C TO STOP[/bold red]"""
+                        
+                        table = Table.grid(expand=False, padding=(0, 5))
+                        table.add_column(justify="left", no_wrap=True)
+                        table.add_column(justify="left", no_wrap=True)
+                        
+                        skull = RainbowSkull()
+                        skull_art = skull.get_rainbow_skull()
+                        table.add_row(skull_art, test_text)
+                        
+                        live.update(table)
+                        time.sleep(1 / 14)
+            except KeyboardInterrupt:
+                pass
+            finally:
+                tester.running = False
+                time.sleep(0.5)
+                total_time = time.time() - start_time
+                avg_rate = total_packets / total_time if total_time > 0 else 0
+                test_status = "STOPPED" if duration == 999999999 else "COMPLETE"
+                for seconds_remaining in range(10, 0, -1):
+                    stats_text = f"""[bold green]{test_status}[/bold green]
+Target: [yellow]{target_ip}[/]
+Total Packets: [bold white]{total_packets:,}[/]
+Test Time: [white]{total_time:.1f}s[/]
+Average Rate: [white]{avg_rate:,.0f}/s[/]
+Peak Rate (1s): [yellow]{peak_rate:,}/s[/]
+[bold cyan]Menu in {seconds_remaining}s...[/bold cyan]"""
+                    draw_ui(stats_text, rainbow=False)
+                    time.sleep(1)
+                menu()
+        
+        if mainmenu == "0":
+            draw_ui("[bold red]EXITING...[/bold red]", rainbow=False)
+            sys.exit(0)
+    
+    except KeyboardInterrupt:
+        console.print("\n[yellow]TEST STOPPED[/yellow]")
+        sys.exit(0)
+    except Exception as e:
+        console.print(f"[bold red]ERROR: {e}[/bold red]")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    menu()
