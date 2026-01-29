@@ -15,15 +15,15 @@ Network stress testing tool for infrastructure evaluation and resilience testing
 - Local network IP validation
 
 🚀 **Installation**
-`bash
+`
 git clone https://github.com/vareblades/stress-test.git && cd stress-test && pip install rich && python wifi-tester.py
 `
 
 or for root
-`bash
+`
 git clone https://github.com/vareblades/stress-test.git && cd stress-test && pip install rich && sudo python wifi-tester.py`
 
-#🎯 Usage
+🎯 Usage
 
 1. Run: python crash.py/sudo python crash.py
 2. Select CPU cores (1-7)
@@ -31,27 +31,27 @@ git clone https://github.com/vareblades/stress-test.git && cd stress-test && pip
 4. Set duration or continuous mode
 5. Monitor real-time stats
 
-#🛡️ Safety Features
+🛡️ Safety Features
 
 · Local IP validation only
 · CPU core limits
 · Educational focus only
 
-#📊 Tests
+📊 Tests
 
 · Network packet handling
 · Router performance under load
 · Firewall effectiveness
 · Service stability
 
-#⚙️ Technical
+ Technical
 
 · Protocols: UDP, DNS, TCP, HTTP
 · Multi-threaded architecture
 · Rich console UI
 · Python 3.7+, Linux/Termux
 
-#🎯 Legitimate Use Cases
+🎯 Legitimate Use Cases
 
 1. Network hardening (your own)
 2. Cybersecurity education
@@ -59,14 +59,14 @@ git clone https://github.com/vareblades/stress-test.git && cd stress-test && pip
 4. Device capability testing
 5. Academic research
 
-#❌ Prohibited Uses
+❌ Prohibited Uses
 
 · Testing without permission
 · External IP targeting
 · Service disruption
 · Malicious activities
 
-#🔒 Best Practices
+🔒 Best Practices
 
 1. Schedule during maintenance
 2. Notify stakeholders
@@ -74,14 +74,14 @@ git clone https://github.com/vareblades/stress-test.git && cd stress-test && pip
 4. Monitor continuously
 5. Document professionally
 
-#📈 Performance Tips
+📈 Performance Tips
 
 · Use 2-4 CPU cores
 · Test off-peak hours
 · Monitor resources
 · Start short, increase gradually
 
-#🆘 Troubleshooting
+🆘 Troubleshooting
 
 · Permission errors: Use local IPs only
 · Low performance: Check system resources
@@ -89,20 +89,20 @@ git clone https://github.com/vareblades/stress-test.git && cd stress-test && pip
 
 ---
 
-#⚖️ Legal Compliance Required
+⚖️ Legal Compliance Required
 
 · Written permission from network owner
 · Local cybersecurity regulations
 · Responsible disclosure protocols
 
-#🤝 Before Testing:
+🤝 Before Testing:
 
 1. Get written permission
 2. Define scope and objectives
 3. Establish emergency channels
 4. Set up monitoring
 
-#📚 Educational Value
+📚 Educational Value
 
 · Network protocol behavior
 · System resource allocation
