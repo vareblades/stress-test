@@ -16,7 +16,7 @@ Network stress testing tool for infrastructure evaluation and resilience testing
 
 #🚀 **Installation**
 ```bash
-git clone 
+git clone https://github.com/vareblades/stress-test/tree/main
 cd dos
 pip install rich
 python crash.py
