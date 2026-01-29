@@ -19,7 +19,7 @@ Network stress testing tool for infrastructure evaluation and resilience testing
 git clone https://github.com/vareblades/stress-test/tree/main
 cd stress-test
 pip install rich
-python crash.py
+python wifi-tester.py
 ```
 
 #🎯 Usage
