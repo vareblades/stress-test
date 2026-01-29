@@ -1,4 +1,4 @@
-# WiFi Stress Tester v2.0.0
+# WiFi Stress Tester v3.0.0
 # FOR EDUCATIONAL PURPOSES ONLY - I AM NOT RESPONSIBLE FOR ANY MISUSE
 # Devs: tg: @oeuts & @One_mIZa
 import os, re, sys, time, socket, random, struct, threading, subprocess, multiprocessing, collections, json, select
@@ -20,7 +20,7 @@ cfg = {
     'SCRIPT_FILE': "wifi-tester.py",
     'MENU_OPTIONS': ["", "0"],
     'DEF_IP': "192.168.1.1",
-    'CURRENT_VER': "2.0.0",
+    'CURRENT_VER': "3.0.0",
     'CHECK_UPDATES': True
 }
 
