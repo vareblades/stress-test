@@ -22,7 +22,8 @@ except ImportError:
     sys.exit(1)
 
 cfg = {
-    'SCRIPT_FILE': "https://raw.githubusercontent.com/vareblades/stress-test/refs/heads/main/wifi%20tester",
+    'GH_RAW': "https://raw.githubusercontent.com/vareblades/stress-test/main/",
+    'SCRIPT_FILE': "wifi-tester.py",
     'MENU_OPTIONS': ["", "0"],
     'DEF_IP': "192.168.1.1",
     'CURRENT_VER': "3.0.0"
